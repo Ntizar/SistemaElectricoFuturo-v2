@@ -163,6 +163,7 @@ export function procesarOpenMeteo(data: OpenMeteoData): ProcessedWeather {
   const temperature = new Float64Array(horasEsperadas);
   const humidity = new Float64Array(horasEsperadas);
   const cloudCover = new Float64Array(horasEsperadas);
+  const radiation = new Float64Array(horasEsperadas);
 
   let sumSolar = 0;
   let sumWind = 0;
@@ -181,6 +182,7 @@ export function procesarOpenMeteo(data: OpenMeteoData): ProcessedWeather {
     temperature[h] = temp;
     humidity[h] = hum;
     cloudCover[h] = cloud;
+    radiation[h] = rad;
 
     sumSolar += solar[h];
     sumWind += wind[h];
@@ -196,6 +198,8 @@ export function procesarOpenMeteo(data: OpenMeteoData): ProcessedWeather {
     temperature,
     humidity,
     cloudCover,
+    radiation,
+    precipitation: new Float64Array(horasEsperadas),
     summary: {
       cfSolarMedio: sumSolar / horasEsperadas,
       cfEolicoMedio: sumWind / horasEsperadas,
