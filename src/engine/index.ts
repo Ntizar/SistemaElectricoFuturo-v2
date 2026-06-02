@@ -22,7 +22,6 @@ import type {
 } from './types';
 import { FISICA, ORDEN_MERITO, RENOVABLES, MUST_RUN } from './types';
 import { clamp, mesDelDia, round2 } from './utils';
-import { Mulberry32 } from './utils';
 import {
   capacidadNuclearHoraria, capacidadDisponibleAnual,
 } from './nuclear';

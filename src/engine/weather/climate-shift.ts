@@ -117,3 +117,21 @@ function countPositive(arr: Float64Array): number {
   for (let i = 0; i < arr.length; i++) if (arr[i] > 0) c++;
   return c;
 }
+
+// ─── Funciones de cálculo climático ─────────────────────────────────────────
+
+/**
+ * Calcula el deltaT esperado entre dos años (IPCC SSP2-4.5 ≈ 0.2°C/década)
+ */
+export function calcularDeltaTEsperado(anioBase: number, anioObjetivo: number): number {
+  const decadas = (anioObjetivo - anioBase) / 10;
+  return decadas * 0.2; // SSP2-4.5: ~0.2°C por década
+}
+
+/**
+ * Calcula el factor de ajuste solar (brightening/dimming)
+ */
+export function calcularFactorSolar(anioBase: number, anioObjetivo: number): number {
+  const anos = anioObjetivo - anioBase;
+  return 1.0 + (anos * 0.001); // Brightening: +0.1% por año
+}
