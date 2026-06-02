@@ -23,7 +23,7 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
-    sourcemap: true,
+    sourcemap: false,  // false en producción — no exponer código fuente
     rollupOptions: {
       output: {
         manualChunks: {

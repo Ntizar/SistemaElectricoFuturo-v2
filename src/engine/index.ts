@@ -27,6 +27,7 @@ import {
 } from './nuclear';
 import { calcularSRMCOrden, calcularPrecioMarginal } from './merit-order';
 import { calcularPrecioFinal, precioPeaje } from './price';
+import { calcularDemandaHoraria } from './demand';
 import {
   inicializarAlmacenamiento, operarAlmacenamiento,
   type EstadoAlmacenamiento,
@@ -127,6 +128,9 @@ export async function simular(
   let sumPrecio = 0;
   const preciosArray: number[] = [];
 
+  // ─── Pre-calcular demanda horaria (usando módulo unificado) ───
+  const demandaHoraria = calcularDemandaHoraria(params, weather);
+
   // ─── Loop principal: 8760 horas ───
   for (let h = 0; h < horas; h++) {
     const dia = Math.floor(h / 24);
@@ -154,7 +158,7 @@ export async function simular(
       clamp(weather.wind[h] * 1.5 + 0.2, 0.3, 1.0); // Correlación suave con lluvia
 
     // ── 2. Demanda ──
-    const demandaGW = calcularDemandasHoraria(params, weather, h);
+    const demandaGW = demandaHoraria[h];
     const demandaRed = demandaGW * FISICA.PERDIDAS_RED; // Pérdidas de red
 
     // ── 3. Balance preliminar ──
@@ -370,47 +374,6 @@ export async function simular(
 }
 
 // ─── Funciones auxiliares privadas ────────────────────────────────────────────
-
-function calcularDemandasHoraria(
-  params: SimParams,
-  weather: ProcessedWeather,
-  hora: number,
-): number {
-  const demandaBaseGW = params.demanda.demandaAnual * 1000 / FISICA.HORAS_ANIO;
-  const anos = params.anioObjetivo - params.anioInicio;
-  const crecimiento = Math.pow(1 + params.demanda.crecimientoDemanda / 100, anos);
-  const electrificacion = params.demanda.electrificacionTWh * anos * 1000 / FISICA.HORAS_ANIO;
-  const factorEficiencia = Math.max(0.82, params.demanda.eficienciaDemanda);
-
-  const demandaTotalGW = (demandaBaseGW * crecimiento + electrificacion) * factorEficiencia;
-
-  // Factor de perfil horario (simplificado)
-  const temp = weather.temperature[hora];
-  const horaDelDia = hora % 24;
-  const dia = Math.floor(hora / 24);
-  const mes = mesDelDia(dia);
-  const esFinDeSemana = dia % 7 >= 5;
-
-  // Perfil de demanda típico español
-  const perfil = [
-    0.55, 0.50, 0.48, 0.45, 0.45, 0.50, 0.60, 0.75,
-    0.85, 0.80, 0.75, 0.72, 0.70, 0.68, 0.70, 0.75,
-    0.82, 0.90, 1.00, 1.00, 0.95, 0.85, 0.72, 0.62,
-  ][horaDelDia];
-
-  // Dependencia térmica (calefacción + climatización)
-  let factorTemp = 1.0;
-  if (temp < 17) factorTemp += (17 - temp) * 0.015;
-  else if (temp > 24) factorTemp += (temp - 24) * 0.01;
-
-  const factorFinDeSemana = esFinDeSemana ? 0.88 : 1.0;
-
-  return clamp(
-    demandaTotalGW * perfil * factorTemp * factorFinDeSemana,
-    demandaTotalGW * 0.4,
-    demandaTotalGW * 1.5,
-  );
-}
 
 function calcularSRMCCGT(params: SimParams): number {
   const rendimiento = Math.max(0.45, params.costes.rendimientoCCGT);

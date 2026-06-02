@@ -7,11 +7,16 @@
         <span class="version">v2.0 — Motor de Simulación</span>
       </div>
       <div class="header-right">
+        <span v-if="progresoAnimacion" class="progreso">{{ progresoAnimacion }}</span>
         <span class="status" :class="statusClass">{{ statusText }}</span>
       </div>
     </header>
 
     <!-- KPIs -->
+    <div v-if="errorMsg" class="error-banner">
+      ⚠️ {{ errorMsg }}
+      <button class="btn-dismiss" @click="errorMsg = null">×</button>
+    </div>
     <KPICards :resumen="resultado?.resumen || null" />
 
     <!-- Main content -->
@@ -44,6 +49,9 @@
             :escenarios="escenariosComparados"
             @remove="removeEscenario"
           />
+          <HeatmapChart v-if="tabActivo === 'heatmap'" :hourly="resultado?.hourly || []" />
+          <DispatchSankey v-if="tabActivo === 'sankey'" :resumen="resultado?.resumen || null" />
+          <MonteCarloPanel v-if="tabActivo === 'mc'" :params="params" />
           <div v-if="tabActivo === 'info'" class="info-tab">
             <div class="info-content">
               <h3>ℹ️ Información del modelo</h3>
@@ -96,6 +104,9 @@ import KPICards from './components/KPICards.vue';
 import HourlyChart from './components/HourlyChart.vue';
 import TrajectoryChart from './components/TrajectoryChart.vue';
 import ComparisonView from './components/ComparisonView.vue';
+import MonteCarloPanel from './components/MonteCarloPanel.vue';
+import HeatmapChart from './components/HeatmapChart.vue';
+import DispatchSankey from './components/DispatchSankey.vue';
 import type { SimParams, SimResult, YearSummary } from '../engine/types';
 import { PARAMS_DEFAULT, ESCENARIOS_PREDEFINIDOS } from '../engine/defaults';
 import { simular } from '../engine/index';
@@ -104,16 +115,23 @@ import { aplicarClimateShift } from '../engine/weather/climate-shift';
 
 // State
 const cargando = ref(false);
+const errorMsg = ref<string | null>(null);
 const resultado = ref<SimResult | null>(null);
 const params = ref<SimParams>({ ...PARAMS_DEFAULT });
 const trayectoria = ref<YearSummary[]>([]);
 const escenariosComparados = ref<Array<{ nombre: string; resumen: any }>>([]);
+const progresoAnimacion = ref('');
+const totalAnosTrayectoria = 2035 - 2026 + 1; // 10
+const datosBaseClima = ref<any>(null);
 
 const tabActivo = ref('mix');
 const tabs = [
   { id: 'mix', nombre: 'Mix Horario', icon: '📊' },
   { id: 'trayectoria', nombre: 'Trayectoria', icon: '📈' },
   { id: 'comparacion', nombre: 'Comparación', icon: '⚖️' },
+  { id: 'heatmap', nombre: 'Heatmap', icon: '🗺️' },
+  { id: 'sankey', nombre: 'Flujo Anual', icon: '🔀' },
+  { id: 'mc', nombre: 'Monte Carlo', icon: '🎲' },
   { id: 'info', nombre: 'Información', icon: 'ℹ️' },
 ];
 
@@ -135,8 +153,14 @@ function onParamsChange(p: SimParams) {
 
 async function ejecutarSimulacion() {
   cargando.value = true;
+  errorMsg.value = null;
+  resultado.value = null;
+  trayectoria.value = [];
   try {
-    // Descargar datos climáticos
+    console.log('[sim] Descargando datos climáticos Open-Meteo...');
+    progresoAnimacion.value = '🌍 Descargando clima...';
+
+    // Descargar datos climáticos UNA SOLA VEZ para toda la sesión
     const rawData = await getWeatherData(params.value.clima.anioReferencia);
     const base = procesarOpenMeteo(rawData);
     const weather = aplicarClimateShift(base, {
@@ -148,25 +172,46 @@ async function ejecutarSimulacion() {
       olaCalorExtrema: params.value.clima.olaCalorExtrema,
     });
 
-    // Ejecutar simulación
+    // Guardar datos base para reusar en trayectoria
+    datosBaseClima.value = base;
+
+    // Ejecutar simulación del año objetivo
+    progresoAnimacion.value = '⚡ Simulando...';
     resultado.value = await simular(params.value, weather);
 
     // Generar trayectoria 2026-2035
-    await generarTrayectoria();
+    await generarTrayectoria(base);
+
+    progresoAnimacion.value = '';
+    console.log(`[sim] Simulación completada: ${resultado.value.resumen.precioMedio} €/MWh`);
+
   } catch (error) {
-    console.error('Error en simulación:', error);
+    errorMsg.value = error instanceof Error
+      ? error.message
+      : 'Error inesperado en la simulación. Revisa la consola para más detalles.';
+    console.error('[simulación] Error:', error);
+    progresoAnimacion.value = '';
   } finally {
     cargando.value = false;
   }
 }
 
-async function generarTrayectoria() {
+async function generarTrayectoria(base: any) {
+  if (!base) {
+    console.warn('[trayectoria] Sin datos base de clima');
+    return;
+  }
   const anos: YearSummary[] = [];
+
   for (let anio = 2026; anio <= 2035; anio++) {
+    const idx = anio - 2026;
+    progresoAnimacion.value = `📈 Trayectoria: año ${idx + 1}/${totalAnosTrayectoria} (${anio})`;
     try {
-      const p = { ...params.value, anio };
-      const rawData = await getWeatherData(params.value.clima.anioReferencia);
-      const base = procesarOpenMeteo(rawData);
+      const p = {
+        ...params.value,
+        anioObjetivo: anio,
+      };
+      // Reutilizar datos base, solo aplicar climate shift diferente por año
       const weather = aplicarClimateShift(base, {
         deltaT: params.value.clima.deltaT * ((anio - 2025) / 10),
         factorRadiacionSolar: params.value.clima.factorRadiacionSolar,
@@ -178,10 +223,12 @@ async function generarTrayectoria() {
       const res = await simular(p, weather);
       anos.push({ anio, params: p, resumen: res.resumen });
     } catch (e) {
-      console.error(`Error año ${anio}:`, e);
+      console.error(`[trayectoria] Error año ${anio}:`, e);
     }
   }
+  progresoAnimacion.value = '';
   trayectoria.value = anos;
+  console.log(`[trayectoria] Completada: ${anos.length} años simulados`);
 }
 
 function removeEscenario(idx: number) {
@@ -253,6 +300,43 @@ body {
 .status.loading { color: #f59e0b; }
 .status.ready { color: #22c55e; }
 .status.idle { color: #64748b; }
+
+.progreso {
+  font-size: 0.8rem;
+  color: #f59e0b;
+  margin-right: 0.8rem;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
+}
+
+.error-banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-left: 3px solid #ef4444;
+  color: #fca5a5;
+  padding: 0.6rem 1.5rem;
+  font-size: 0.82rem;
+  margin: 0 1rem;
+  border-radius: 8px;
+}
+
+.btn-dismiss {
+  background: none;
+  border: none;
+  color: #fca5a5;
+  font-size: 1.3rem;
+  cursor: pointer;
+  padding: 0 0.3rem;
+  opacity: 0.6;
+}
+.btn-dismiss:hover { opacity: 1; }
 
 .main-layout {
   display: flex;
