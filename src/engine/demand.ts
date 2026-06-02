@@ -164,7 +164,7 @@ export function calcularDemandaHoraria(
     const fServicios = PERFIL_SERVICIOS[horaDelDia] * factorServicios(temp) *
       (esFinDeSemana ? 0.6 : 1.0); // servicios baja fines de semana
     const fIndustria = PERFIL_INDUSTRIA[horaDelDia] * factorIndustria(temp) *
-      (esFinDeSemana ? 0.3 : 1.0); // industria baja fines de semana
+      (esFinDeSemana ? 0.75 : 1.0); // industria baja fines de semana (España ~25%)
 
     // Pesos sectoriales (aproximación España 2025)
     const pesoResidencial = 0.30;
@@ -224,7 +224,7 @@ export function calcularDesgloseDemanda(
     servicios[h] = demanda[h] * PERFIL_SERVICIOS[horaDelDia] * factorServicios(temp) *
       (esFinDeSemana ? 0.6 : 1.0) * 0.35;
     industria[h] = demanda[h] * PERFIL_INDUSTRIA[horaDelDia] * factorIndustria(temp) *
-      (esFinDeSemana ? 0.3 : 1.0) * 0.35;
+      (esFinDeSemana ? 0.75 : 1.0) * 0.35;
     ve[h] = demanda[h] * PERFIL_VE[horaDelDia] * 0.08; // ~8% de la demanda total
     bombaCalor[h] = demanda[h] * factorBombaCalor(temp) * 0.10;
 

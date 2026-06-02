@@ -21,7 +21,7 @@ import type {
   Tecnologia, ProcessedWeather,
 } from './types';
 import { FISICA, ORDEN_MERITO, RENOVABLES, MUST_RUN } from './types';
-import { clamp, mesDelDia, round2 } from './utils';
+import { clamp, mesDelDia, round2, Mulberry32 } from './utils';
 import {
   capacidadNuclearHoraria, capacidadDisponibleAnual,
 } from './nuclear';
@@ -60,11 +60,14 @@ function calcularGeneracionBase(
   const solar = cap.solarFV * weather.solar[hora] * cfSolarCalibrado;
   const eolica = cap.eolicaOnshore * weather.wind[hora] * cfEolicoCalibrado;
 
-  // Offshore: correlación parcial 0.6 con onshore + ruido independiente
-  const eolicaOff = cap.eolicaOffshore * (
+  // Offshore: correlación parcial 0.6 con onshore + perfil independiente
+  // Offshore tiene CF ~45% vs onshore ~30%, y viento más estable
+  const cfOffshoreCalibrado = FISICA.FC_EOLICO_OFFSHORE_REAL / Math.max(0.01, cfEolicoMedio);
+  const eolicaOff = cap.eolicaOffshore * clamp(
     0.6 * weather.wind[hora] * cfEolicoCalibrado +
-    0.4 * clamp(weather.wind[hora] * 1.1 + 0.05, 0, 1)
-  );
+    0.4 * weather.wind[hora] * 1.15,
+    0, cap.eolicaOffshore
+  ) * (cfOffshoreCalibrado / cfEolicoCalibrado);
 
   return {
     nuclear: 0,             // Se calcula aparte (calendario ENRESA)
@@ -154,15 +157,22 @@ export async function simular(
     generacion.nuclear = nuclearMW / 1000 * FISICA.FC_NUCLEAR;
 
     // Hidráulica fluyente (sin límite anual, ~38% del total hidro)
+    // Basada en precipitación horaria + factor estacional + hidraulicidad
+    const precipRelativa = weather.precipitation[h] > 0
+      ? Math.min(weather.precipitation[h] / 5, 1)  // normalizar precipitación
+      : 0.3;  // caudal base mínimo
+    const factorEstacionalHidro = [0.7, 0.6, 0.7, 0.9, 1.0, 0.8, 0.5, 0.5, 0.7, 0.9, 1.0, 0.8][mes]; // más lluvia en otoño/invierno
     generacion.hidroFluyente = params.capacidad.hidraulica * 0.38 *
-      clamp(weather.wind[h] * 1.5 + 0.2, 0.3, 1.0); // Correlación suave con lluvia
+      clamp(precipRelativa * factorEstacionalHidro * params.clima.hidraulicidad, 0.3, 1.0);
 
     // ── 2. Demanda ──
     const demandaGW = demandaHoraria[h];
     const demandaRed = demandaGW * FISICA.PERDIDAS_RED; // Pérdidas de red
 
     // ── 3. Balance preliminar ──
-    const mustRunGW = generacion.nuclear + generacion.hidroFluyente;
+    // Inercia síncrona = generación sincrónica (nuclear + hidroembalse + CCGT cuando corre)
+    // hidroFluyente NO es sincrónica (es fluyente, toma el precio)
+    const mustRunGW = generacion.nuclear + generacion.hidroEmbalse;
     const renovablesGW = generacion.solarFV + generacion.eolicaOnshore +
       generacion.eolicaOffshore + generacion.hidroFluyente;
 
@@ -179,6 +189,7 @@ export async function simular(
       Math.max(0, excedente),
       0, // deficit se calcula después
       precioReciente,
+      horaDelDia,
     );
 
     generacion.baterias = resultadoAlm.descargaBaterias;
@@ -284,7 +295,7 @@ export async function simular(
       generacion: { ...generacion },
       demandaGW: demandaRed,
       demandaRed,
-      perdidasRed: demandaRed * FISICA.PERDIDAS_RED,
+      perdidasRed: demandaRed - demandaGW,
       renovablesGW,
       mustRunGW,
       excedenteGW: excedente,
@@ -386,15 +397,4 @@ function calcularSRMCCarbon(params: SimParams): number {
   return params.costes.precioGas * 0.8 / 0.38 +
     params.costes.precioCO2 * 0.9 / 0.38 +
     params.costes.omCarbon;
-}
-
-function Mulberry32(seed: number): () => number {
-  let state = seed | 0;
-  return () => {
-    state = (state + 0x6D2B79F5) | 0;
-    let t = Math.imul(state ^ (state >>> 15), 1 | state);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    const u = ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-    return Math.max(1e-14, Math.min(1 - 1e-14, u));
-  };
 }

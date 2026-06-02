@@ -145,6 +145,7 @@ export function operarAlmacenamiento(
   excedente: number,
   deficit: number,
   precioReciente: number,
+  horaDelDia?: number,
 ): ResultadoAlmacenamiento {
   const b = estado.baterias;
   const p = estado.bombeo;
@@ -174,9 +175,13 @@ export function operarAlmacenamiento(
   // Autodescarga (siempre, aunque pequeño)
   b.soc *= (1 - b.autodescarga);
 
-  // Degradación por ciclos
-  const degradacion = b.ciclosAcumulados * 0.02; // 2% por ciclo completo
-  b.capacidadMax *= (1 - degradacion * 0.0001); // Muy pequeño por hora
+  // Degradación incremental por ciclos (no exponencial)
+  // 2% de pérdida de capacidad por ciclo completo equivalente
+  const degradacionHora = b.ciclosAcumulados * 0.02 / FISICA.HORAS_ANIO;
+  b.capacidadMax = Math.max(
+    b.capacidadMax * 0.8, // mínimo 80% de capacidad original
+    b.capacidadMax * (1 - degradacionHora),
+  );
 
   // ─── Bombeo ───
   if (excedente > 0) {
@@ -192,10 +197,13 @@ export function operarAlmacenamiento(
     p.nivel -= descargaBombeo;
   }
 
-  // ─── V2G ───
-  if (deficit > 0 && v.potenciaMax > 0) {
-    const disponible = v.potenciaMax * v.participacion;
-    v2gOut = Math.min(deficit - descargaBaterias - descargaBombeo, Math.max(0, disponible));
+  // ─── V2G (solo nocturno 22h-06h, coches enchufados) ───
+  if (horaDelDia !== undefined && deficit > 0 && v.potenciaMax > 0) {
+    const esNocturno = horaDelDia >= 22 || horaDelDia <= 6;
+    if (esNocturno) {
+      const disponible = v.potenciaMax * v.participacion;
+      v2gOut = Math.min(deficit - descargaBaterias - descargaBombeo, Math.max(0, disponible));
+    }
   }
 
   // ─── SRMC para precio marginal ───

@@ -39,7 +39,8 @@ export function aplicarClimateShift(
 
   for (let h = 0; h < horas; h++) {
     // Temperatura: +ΔT (más en verano, menos en invierno)
-    const mes = Math.floor((h % 8760) / 730); // 0-11
+    // Mes correcto: h está en horas del año, dividir por 730.5 para obtener mes (0-11)
+    const mes = Math.floor(h / 730.5); // 730.5h ≈ 30.4 días/mes
     const factorEstacional = mes >= 5 && mes <= 8 ? 1.3 : 0.8; // Verano más, invierno menos
     temperature[h] = base.temperature[h] + params.deltaT * factorEstacional;
 

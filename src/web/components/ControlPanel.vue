@@ -8,7 +8,8 @@
         <SliderRow label="Eólica Onshore" v-model="cap.eolicaOnshore" :min="0" :max="100" :step="1" unit="GW" />
         <SliderRow label="Eólica Offshore" v-model="cap.eolicaOffshore" :min="0" :max="30" :step="0.5" unit="GW" />
         <SliderRow label="CCGT" v-model="cap.ccgt" :min="0" :max="40" :step="0.5" unit="GW" />
-        <SliderRow label="Baterías" v-model="cap.bateriasPotencia" :min="0" :max="80" :step="1" unit="GW" />
+        <SliderRow label="Baterías" v-model="cap.bateriasPotencia" :min="0" :max="25" :step="0.5" unit="GW" />
+        <SliderRow label="Baterías (horas)" v-model="cap.bateriasHoras" :min="1" :max="12" :step="1" unit="h" />
         <SliderRow label="Bombeo" v-model="cap.bombeoPotencia" :min="0" :max="15" :step="0.5" unit="GW" />
       </SliderGroup>
     </div>
@@ -40,6 +41,7 @@
       </div>
       <SliderGroup>
         <SliderRow label="ΔT" v-model="clima.deltaT" :min="0" :max="3" :step="0.1" unit="°C" />
+        <SliderRow label="Hidráulica" v-model="clima.hidraulicidad" :min="0.3" :max="1.5" :step="0.05" unit="x" />
       </SliderGroup>
       <div class="checkbox-row">
         <label><input type="checkbox" v-model="clima.sequiaExtrema" /> Sequía extrema</label>

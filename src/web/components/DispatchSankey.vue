@@ -18,30 +18,41 @@ function renderChart() {
 
   const r = props.resumen;
 
-  // Calcular TWh desde porcentajes y demanda
-  const total = r.demandaAnualTWh || 248;
-  const nuclear = total * r.nuclearPct / 100;
-  const solar = total * 16.5 / 100;
-  const eolica = total * 21.3 / 100;
-  const hidro = total * 11.4 / 100;
-  const gas = total * 15.3 / 100;
-  const carbones = total * 1.8 / 100;
-  const baterias = total * 2.5 / 100;
-  const importa = total * 3.0 / 100;
+  // Usar datos reales de la simulación, no valores hardcoded
+  const gen = r.generacionPorTecnologia || {};
+  const nuclear = gen.nuclear || 0;
+  const solar = gen.solarFV || 0;
+  const eolica = (gen.eolicaOnshore || 0) + (gen.eolicaOffshore || 0);
+  const hidro = (gen.hidroFluyente || 0) + (gen.hidroEmbalse || 0);
+  const gas = gen.ccgt || 0;
+  const carbones = gen.carbon || 0;
+  const baterias = gen.baterias || 0;
+  const bombeo = gen.bombeo || 0;
+  const importa = gen.importacion || 0;
+  const v2g = gen.v2g || 0;
 
   const labels = [
     'Nuclear', 'Solar FV', 'Eólica', 'Hidro', 'CCGT', 'Carbón',
-    'Baterías', 'Importación',
+    'Baterías', 'Bombeo', 'V2G', 'Importación',
     'Demanda', 'ENS', 'Vertidos',
   ];
 
-  const source = [0,1,2,3,4,5,6,7, 0,1,2,3,4];
-  const target = [8,8,8,8,8,8,8,8, 11,11,11,11, 10];
+  // Links: tecnologías → demanda + pérdidas
+  const source = [0,1,2,3,4,5,6,7,8,9];
+  const target = [10,10,10,10,10,10,10,10,10,10];
   const value = [
     nuclear, solar, eolica, hidro,
-    gas, carbones || 0.1, baterias, importa,
-    0.5, 0.8, 0.3, 0.2, 0.1,
+    gas, carbones || 0.01, baterias, bombeo, v2g, importa,
   ];
+
+  // ENS y vertidos como salidas separadas
+  const ensSource = [4, 1]; // CCGT y Solar contribuyen a vertidos cuando hay exceso
+  const ensTarget = [11];
+  const ensValue = [0.5, 0.8]; // Simplificado
+
+  const vertidosSource = [1, 2]; // Solar y eólica se vierten
+  const vertidosTarget = [12];
+  const vertidosValue = [0.3, 0.2];
 
   const trace = {
     type: 'sankey' as const,
@@ -52,7 +63,8 @@ function renderChart() {
       label: labels,
       color: [
         '#22c55e', '#eab308', '#3b82f6', '#06b6d4',
-        '#f97316', '#78716c', '#8b5cf6', '#64748b',
+        '#f97316', '#78716c', '#8b5cf6', '#22c55e',
+        '#a855f7', '#64748b',
         '#f8fafc', '#ef4444', '#94a3b8',
       ],
     },

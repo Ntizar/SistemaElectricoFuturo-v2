@@ -79,7 +79,7 @@ export const PARAMS_DEFAULT: SimParams = {
   clima: {
     fuente: 'open-meteo',
     anioReferencia: 2024,       // datos reales 2024
-    deltaT: 0.3,                // +0.3°C vs 2024 (proyección 2030 IPCC)
+    deltaT: 0.5,                // +0.5°C vs 2024 (2030 = 3 décadas desde 2020 × 0.2°C/década IPCC SSP2-4.5)
     factorRadiacionSolar: 1.0,  // sin cambio
     factorViento: 1.0,          // sin cambio
     sequiaExtrema: false,
