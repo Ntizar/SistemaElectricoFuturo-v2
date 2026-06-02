@@ -1,0 +1,40 @@
+{
+  "name": "sistema-electrico-futuro-v2",
+  "version": "2.0.0",
+  "description": "Simulador interactivo del sistema eléctrico español 2026-2050 — datos reales, merit-order SRMC, Monte Carlo",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "lint": "eslint src/",
+    "typecheck": "vue-tsc --noEmit",
+    "server": "tsx src/server/index.ts",
+    "server:dev": "tsx watch src/server/index.ts"
+  },
+  "dependencies": {
+    "vue": "^3.5.0",
+    "plotly.js-dist-min": "^2.35.0",
+    "express": "^4.21.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.2.0",
+    "vite": "^6.0.0",
+    "vue-tsc": "^2.2.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0",
+    "@vitest/coverage-v8": "^3.0.0",
+    "tsx": "^4.19.0",
+    "@types/node": "^22.0.0",
+    "@types/express": "^5.0.0",
+    "eslint": "^9.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
