@@ -17,9 +17,9 @@
  * ============================================================================
  */
 
-import type { OpenMeteoData, ProcessedWeather } from './types';
-import { FISICA } from './types';
-import { clamp, mesDelDia } from './utils';
+import type { OpenMeteoData, ProcessedWeather } from '../types';
+import { FISICA } from '../types';
+import { clamp, mesDelDia } from '../utils';
 
 // ─── Configuración ───────────────────────────────────────────────────────────
 

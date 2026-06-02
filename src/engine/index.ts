@@ -22,7 +22,7 @@ import type {
 } from './types';
 import { FISICA, ORDEN_MERITO, RENOVABLES, MUST_RUN } from './types';
 import { clamp, mesDelDia, round2 } from './utils';
-import { mulberry32 } from './utils';
+import { Mulberry32 } from './utils';
 import {
   capacidadNuclearHoraria, capacidadDisponibleAnual,
 } from './nuclear';
@@ -426,7 +426,7 @@ function calcularSRMCCarbon(params: SimParams): number {
     params.costes.omCarbon;
 }
 
-function mulberry32(seed: number): () => number {
+function Mulberry32(seed: number): () => number {
   let state = seed | 0;
   return () => {
     state = (state + 0x6D2B79F5) | 0;

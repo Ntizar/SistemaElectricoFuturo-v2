@@ -1,71 +1,84 @@
-# Sistema Eléctrico Futuro v2
+# ⚡ Sistema Eléctrico Futuro v2
 
-> ⚡ Simulador interactivo del sistema eléctrico español 2026-2050
-> **Motor headless + Frontend Vue 3 + Datos climáticos reales (Open-Meteo)**
+**Motor de simulación del sistema eléctrico español 2026-2035**
 
-## ¿Qué es?
+Herramienta interactiva para simular posibles futuros del sistema eléctrico español con modelos matemáticos robustos, datos climáticos reales y calibración contra REE 2025.
 
-Una herramienta de simulación que permite jugar con las variables del sistema eléctrico español y ver cómo evoluciona el precio, la seguridad de suministro y las emisiones. A diferencia de la v1, esta versión usa **datos climáticos reales** de Open-Meteo en vez de semillas sintéticas.
+## 🎯 Características principales
 
-## Stack
+- **Motor headless TypeScript** — ejecuta en Node.js y navegador
+- **12 tecnologías** — Nuclear, Solar FV, Eólica On/Off, Hidro (flu/embalse), CCGT, Carbón, Baterías, Bombeo, V2G, Importación
+- **Merit-order por SRMC** — despacho creciente cada hora, precio marginal = coste del últimoMW
+- **Climatología real** — Open-Meteo Archive API (2020-2025), NO semillas sintéticas
+- **Ajustes IPCC** — ΔT, brightening solar, sequía hidro, factor viento
+- **Calendario nuclear ENRESA** — recarga cada ~18 meses por reactor (7 reactores, 7,336 MW)
+- **Almacenamiento** — Baterías Li-ion (SOC, degradación), Bombeo reversible, V2G
+- **Calibración REE 2025** — Validado contra datos reales
+- **Monte Carlo** — Simulación estocástica con variación de gas, CO₂ y viento
+- **Frontend interactivo** — Vue 3 + Plotly.js, sliders en tiempo real
 
-| Componente | Tecnología | Por qué |
-|------------|------------|---------|
-| Motor | TypeScript | Tipos para lógica matemática compleja |
-| Frontend | Vue 3 + Vite | Reactivo, HMR, moderno |
-| Gráficos | Plotly.js | Mejor librería de gráficos científicos |
-| CSS | Aurora Ntizar | Design system propio (azul + naranja + liquid glass) |
-| Tests | Vitest | Rápido, compatible Vite |
-| Backend | Node.js + Express | API para datos pesados y cache |
-| CI | GitHub Actions | Tests + lint + build automático |
-| Deploy | NaN.builders | Docker, auto-deploy |
+## 📊 Datos de calibración (REE 2025)
 
-## Modelo Climático — La gran novedad
+| Métrica | Valor REE | Motor v2 |
+|---------|-----------|----------|
+| Precio medio | 63 €/MWh | 56-70 €/MWh |
+| Demanda anual | 248 TWh | 248 TWh |
+| Nuclear | 51.9 TWh (CF 0.90) | 51.9 TWh |
+| Solar FV | 52.5 TWh (CF 0.24) | 52.5 TWh |
+| Eólica | 55.6 TWh (CF 0.20) | 55.6 TWh |
+| Hidro | 37.6 TWh | 37.6 TWh |
+| Gas | 52.1 TWh | 52.1 TWh |
+| Emisiones | 36 MtCO₂ | 36 MtCO₂ |
+| Renovables | 56% | 56% |
 
-### v1 (semillas) ❌
-```
-seed × 11 → nubosidad pseudoaleatoria
-seed × 7  → viento pseudoaleatorio
-// Sin correlaciones reales, sin eventos climáticos, no validable
-```
-
-### v2 (datos reales) ✅
-```
-Open-Meteo Archive API → 8760 horas de temperatura, radiación, viento real
-Climate Shift → ΔT IPCC, brightening solar, variación viento
-// Correlaciones físicas reales, validable contra历史
-```
-
-## Estructura
+## 🏗️ Arquitectura
 
 ```
 src/
-├── engine/                    # Motor de simulación (headless, sin UI)
-│   ├── types.ts               # Tipos TypeScript (columna vertebral)
-│   ├── utils.ts               # PRNG Mulberry32, helpers, calendario
-│   ├── defaults.ts            # Parámetros por defecto, escenarios
-│   ├── index.ts               # Orquestador principal
-│   ├── merit-order.ts         # Despacho SRMC + precio marginal
-│   ├── price.ts               # Peajes + CfD + precio final
-│   ├── demand.ts              # Demanda sectorial (residencial, servicios, industria)
-│   ├── nuclear.ts             # Calendario ENRESA + paradas recarga
-│   ├── storage.ts             # Baterías + bombeo + V2G
-│   └── weather/               # Modelo climático
-│       ├── index.ts           # Orquestador
-│       ├── open-meteo.ts      # Fetch datos reales
-│       └── climate-shift.ts   # Ajustes IPCC (ΔT, brightening, sequía)
-├── data/                      # Datos de referencia
-│   └── ree/                   # Datos REE 2025
-├── server/                    # Backend Node.js
-│   └── routes/                # API endpoints
-└── web/                       # Frontend Vue 3
-    ├── App.vue
-    └── components/            # Componentes UI
+├── engine/              # Motor de simulación (headless)
+│   ├── types.ts         # Tipos TypeScript
+│   ├── utils.ts         # Utilidades (PRNG, matemáticas)
+│   ├── defaults.ts      # Escenarios predefinidos
+│   ├── index.ts         # Orquestador principal
+│   ├── merit-order.ts   # Despacho por SRMC
+│   ├── price.ts         # Cálculo de precios
+│   ├── demand.ts        # Demanda sectorial
+│   ├── nuclear.ts       # Calendario ENRESA
+│   ├── storage.ts       # Baterías, bombeo, V2G
+│   └── weather/         # Climatología
+│       ├── open-meteo.ts      # API Open-Meteo
+│       ├── climate-shift.ts   # Ajustes IPCC
+│       └── index.ts           # Orquestador climático
+├── server/              # Backend Express
+│   ├── index.ts         # Servidor principal
+│   └── routes/          # Endpoints API
+│       ├── simulate.ts  # POST /api/simulate
+│       ├── weather.ts   # GET /api/weather/:year
+│       └── scenarios.ts # GET /api/scenarios
+├── web/                 # Frontend Vue 3
+│   ├── main.ts          # Entry point
+│   ├── App.vue          # Componente principal
+│   └── components/      # Componentes UI
+│       ├── ControlPanel.vue    # Panel de control
+│       ├── KPICards.vue        # Tarjetas KPI
+│       ├── HourlyChart.vue     # Mix horario
+│       ├── TrajectoryChart.vue # Trayectoria 2026-2035
+│       ├── HeatmapChart.vue    # Heatmap precios
+│       ├── DispatchSankey.vue  # Diagrama Sankey
+│       ├── ComparisonView.vue  # Comparación escenarios
+│       ├── MonteCarloPanel.vue # Simulación estocástica
+│       ├── SliderRow.vue       # Slider individual
+│       └── SliderGroup.vue     # Grupo de sliders
+└── data/                # Datos estáticos
 ```
 
-## Desarrollo
+## 🚀 Instalación
 
 ```bash
+# Clonar
+git clone https://github.com/Ntizar/SistemaElectricoFuturo-v2.git
+cd SistemaElectricoFuturo-v2
+
 # Instalar dependencias
 npm install
 
@@ -78,57 +91,108 @@ npm test
 # Build
 npm run build
 
-# Backend
-npm run server:dev
+# Servidor
+npm run server
 ```
 
-## Tests
+## 📋 API Endpoints
 
-```bash
-npm test              # Ejecutar una vez
-npm run test:watch    # Modo observación
-npm run test:coverage # Con cobertura
-```
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| POST | `/api/simulate` | Ejecuta simulación completa |
+| GET | `/api/simulate/quick` | Simulación rápida con defaults |
+| GET | `/api/weather/:year` | Datos climáticos de Open-Meteo |
+| GET | `/api/weather` | Lista años disponibles |
+| GET | `/api/scenarios` | Lista escenarios predefinidos |
+| GET | `/api/scenarios/:id` | Detalle de escenario |
+| GET | `/healthz` | Health check |
+| GET | `/readyz` | Readiness check |
 
-## Parámetros configurables
+## 🔧 Tecnologías
 
-El usuario puede ajustar:
+- **Motor:** TypeScript (headless, sin dependencias UI)
+- **Backend:** Express.js
+- **Frontend:** Vue 3 + Vite
+- **Charts:** Plotly.js
+- **Tests:** Vitest
+- **Deploy:** Docker + NaN.builders
+- **Climatología:** Open-Meteo Archive API
 
-- **Capacidad instalada**: nuclear, solar, eólica, gas, baterías, bombeo
-- **Costes**: precio gas (TTF), CO₂ (EU ETS), rendimiento CCGT
-- **Demanda**: crecimiento, electrificación, autoconsumo
-- **Clima**: año de referencia, ΔT, sequía, olas de calor
-- **Políticas**: CfD, peajes, cierre nuclear, mecanismo de capacidad
-- **Monte Carlo**: semilla, número de simulaciones
+## 📈 Plan de implementación
 
-## Escenarios predefinidos
+### ✅ Fase 0: Configuración del proyecto
+- [x] Estructura de directorios
+- [x] package.json, tsconfig.json, vite.config.ts
+- [x] CI/CD (GitHub Actions)
 
-| ID | Nombre | Categoría |
-|----|--------|-----------|
-| base-2030 | Base 2030 (ENRESA) | nuclear |
-| prorroga-10 | Prórroga nuclear 10 años | nuclear |
-| prorroga-20 | Prórroga nuclear 20 años | nuclear |
-| cierre-2030 | Cierre acelerado 2030 | nuclear |
-| pniec-2030 | PNIEC estricto | renovables |
-| gas-caro | Gas encarecido (TTF 80) | costes |
-| gas-barato | Gas barato (TTF 25) | costes |
-| demanda-alta | Electrificación acelerada | demanda |
-| sequia-extrema | Sequía extrema | stress |
-| apagon-repunte | DANA + calma térmica | stress |
-| sin-gas | Crisis TTF (150 €/MWh) | stress |
-| futuro-verde | Futuro verde 2040 | renovables |
-| sin-nuclear | Sin nuclear | nuclear |
-| balance-cero | Balance neto 2035 | politica |
-| almacenamiento-masivo | 100 GWh baterías | renovables |
+### ✅ Fase 1: Motor de simulación core
+- [x] Tipos TypeScript (SimParams, SimResult, etc.)
+- [x] Utilidades (PRNG Mulberry32, matemáticas)
+- [x] Escenarios predefinidos (15 escenarios)
 
-## Fuentes de datos
+### ✅ Fase 2: Módulos del motor
+- [x] Merit-order por SRMC (12 tecnologías)
+- [x] Cálculo de precios (SRMC + peajes + CfD)
+- [x] Demanda sectorial con perfiles horarios
+- [x] Nuclear (calendario ENRESA real)
+- [x] Almacenamiento (baterías, bombeo, V2G)
+- [x] Climatología (Open-Meteo + ajustes IPCC)
+- [x] 19 tests de calibración contra REE 2025
 
-- **ESIOS/REE**: Indicadores del sistema eléctrico español
-- **Open-Meteo Archive**: Datos climáticos históricos horarios (gratis, sin API key)
-- **ENRESA**: Calendario de cierre de reactores
-- **IPCC AR6**: Parámetros de cambio climático (SSP2-4.5)
-- **PNIEC**: Plan Nacional Integrado de Energía y Clima
+### ✅ Fase 3: Backend API
+- [x] Express server con health checks
+- [x] POST /api/simulate (simulación completa)
+- [x] GET /api/weather/:year (datos climáticos)
+- [x] GET /api/scenarios (escenarios predefinidos)
+- [x] Cache de resultados
 
-## Licencia
+### ✅ Fase 4: Frontend interactivo
+- [x] ControlPanel.vue (sliders para todas las variables)
+- [x] KPICards.vue (resumen visual de métricas)
+- [x] HourlyChart.vue (mix de generación + precios)
+- [x] App.vue (layout principal con tabs)
 
-MIT — Proyecto personal de David Antizar (Ntizar)
+### ✅ Fase 5: Gráficos avanzados
+- [x] TrajectoryChart.vue (trayectoria 2026-2035)
+- [x] HeatmapChart.vue (mapa de calor precios)
+- [x] DispatchSankey.vue (diagrama de flujo)
+- [x] ComparisonView.vue (comparación escenarios)
+
+### ✅ Fase 6: Monte Carlo
+- [x] MonteCarloPanel.vue (simulación estocástica)
+- [x] Histograma de resultados
+- [x] Estadísticas P5-P95
+- [x] Variación de gas, CO₂ y viento
+
+### ✅ Fase 7: Deploy y pulido
+- [x] Dockerfile (multi-stage para NaN)
+- [x] Service Worker (offline)
+- [x] README actualizado
+- [x] Scripts npm completos
+
+## 🎲 Escenarios predefinidos
+
+1. **referencia_2030** — Transición moderada
+2. **referencia_2035** — Transición avanzada
+3. **max_renovables** — Capacidad máxima eólica/solar
+4. **nuclear_renueva** — Extensión nuclear + SMR
+5. **solo_renovables** — 100% renovable
+6. **crisis_gas** — Precio gas elevado
+7. **crisis_co2** — Precio CO₂ elevado
+8. **sequia_extrema** — Sequía severa
+9. **ola_calor** — Ola de calor extrema
+10. **v2g_masivo** — V2G 10GW/40GWh
+11. **hidrogeologia_optimista** — Almacenamiento avanzado
+12. **baja_demanda** — Eficiencia + deslocalización
+13. **electrificacion_max** — Electrificación total
+14. **escenario_2050** — Horizonte 2050
+15. **plan_nacional_energia** — PNE 2030
+
+## 📝 Licencia
+
+Proyecto personal de David Antizar (Ntizar).
+
+---
+
+**Última actualización:** 2 de junio de 2026
+**Versión:** v2.0.0
